@@ -157,7 +157,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
     }
 
     public function setup_attempt_page($page) {
-        $page->set_title($this->quizobj->get_course()->shortname . ': ***** ' . $page->title);
+        $page->set_title($this->quizobj->get_course()->shortname . ': ' . $page->title);
         $page->set_cacheable(false);
         $page->set_popup_notification_allowed(false); // Prevent message notifications.
         $page->set_heading($page->title);
@@ -171,6 +171,9 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         
         global $OUTPUT, $PAGE, $DB;
 
+        if ($PAGE->pagetype != 'mod-quiz-view') {
+            return;
+        }
 
         $plagiarismsettings = (array)get_config('plagiarism');
         $select = 'cm = ?';
@@ -181,9 +184,9 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $formatoptions = new stdClass;
         $formatoptions->noclean = true;
         $path = core_component::get_plugin_directory("mod", "originality");
-
-        // $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
-        // $PAGE->requires->js('/plagiarism/originality/javascript/inter.js?v=24');
+         $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
+         $PAGE->requires->js('/mod/quiz/accessrule/originalityquiz/javascript/originalityquiz.js?v=24');
+        $str .= "<span style='text-align: left'>";
         $str .= format_text(get_string("originalitystudentdisclosure", "plagiarism_originality"), FORMAT_MOODLE, $formatoptions);
 
         // Ben Gurion University requested an additional statement here.
@@ -201,7 +204,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
         <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
 HHH;
-
+        $str .= "</span>";
         $str .= $OUTPUT->box_end();
 
         // $result = $PAGE->requires->js_call_amd('quizaccess_originalityquiz/timer', 'init', array($str));
@@ -321,7 +324,6 @@ HHH;
      *      For example array('ipaddress', 'password').
      */
     public function get_superceded_rules() {
-        echo "8888"; 
         return array();
     }
 }
