@@ -26,7 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/accessrule/accessrulebase.php');
-
+require_once($CFG->dirroot . '/plagiarism/originality/locallib.php');
 
 /**
  * A rule requiring the student to promise not to cheat.
@@ -341,13 +341,50 @@ HHH;
      */
     public function is_preflight_check_required($attemptid) {
         global $DB, $CFG, $USER;
-        $cmid = optional_param('cmid', null, PARAM_INT);
-        $attemptobj = quiz_create_attempt_handling_errors($attemptid, $cmid);
 
         $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
         if (strpos($currentURL,'summary.php') !== false) {
-            print_r($attemptobj);
-            echo $attemptid."ddddd".$cmid; exit();
+
+            $cmid = optional_param('cmid', null, PARAM_INT);
+            $attemptobj = quiz_create_attempt_handling_errors($attemptid, $cmid);
+
+           // echo "<pre>";
+            // print_r($attemptobj->get_question());
+            // print_r($attemptobj->get_attempt());
+            //echo "<br><br>";
+            //print_r($attemptobj->get_active_slots());
+            //echo "<br><br>";
+           // echo $attemptobj->get_question_attempt(2)->get_id();
+           // echo $attemptobj->get_question_attempt(2)->get_id() .' ================ '. $attemptobj->get_question_attempt(2)->get_usageid(); ->get_question_attempt(1) quizobj
+           // print_r( $attemptobj->get_uniqueid() );
+
+            $questionsattempts = $DB->get_records('question_attempts', array('questionusageid' => $attemptobj->get_uniqueid()));
+
+            // print_r($questionsattempts);
+
+            foreach ($questionsattempts as $key => $value) {
+                $questionsAttemptSteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $value->id));
+                foreach ($questionsAttemptSteps as $key1 => $value1) {
+                    $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
+                    foreach ($questionsAttemptsData as $key2 => $value2) {
+                        //echo $value2->value;
+                        $userid = 2;
+                        list($origserver, $origkey) = $this->_get_server_and_key();
+                        $filename = 'onlinetext-'.$userid.'.txt';
+                        $eventdata = array('courseid'=>5,'contextinstanceid'=>$cmid,'userid'=>2,'assignNum'=>712);
+                        list($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum) = $this->_get_params_for_file_submission($eventdata);
+
+                        $uploadresult = $this->_do_curl_request($origserver, $origkey, $value2->value, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
+
+                       // print_r($uploadresult);
+
+                    }
+                }
+            }
+
+            // echo '<br><br><br><br>'.$attemptid."ddddd".$cmid; exit();
+
+
         }
         //  echo $attemptid."ddddd"; exit();
         // if(!empty($_POST)){ print_r( $_POST ); exit(); }
@@ -488,6 +525,7 @@ HHH;
 
         $realassignnum = $this->get_real_assignment_number($assignnum);
 
+
         return array($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode,
                      $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum);
     }
@@ -555,6 +593,8 @@ HHH;
 
         $outputarray = json_decode($output, true);
 
+        // print_r($outputarray);
+
         $err = curl_error($curl);
 
         curl_close($curl);
@@ -576,5 +616,29 @@ HHH;
                 return array(false, 'No File Id returned from curl upload.');
             }
         }
+    }
+    // Keep unique file identifiers in the requests table per user and assignment so if there are multiple requests not yet answered, when get response in report.php we will know which request it belongs to.
+
+    /**
+     * Keep unique file identifiers in the requests table per user and assignment so if there are multiple requests not yet answered, when get response in report.php we will know which request it belongs to.
+     * @param list - assignnum and userid
+     * @return int
+     */
+    private function get_unique_id($assignnum, $userid){
+      global $DB;
+      $maxreqid = $DB->get_record_sql("select max(file_identifier) as maxid from {plagiarism_originality_req} where assignment=? and userid=?", array($assignnum, $userid));
+      if ($maxreqid){
+          return $maxreqid->maxid+1;
+      }else{
+          return 1;
+      }
+    }
+
+    private function get_real_assignment_number($assignnum){
+        global $DB;
+
+        $realassignnum = $DB->get_field_sql("SELECT cm.id from {course_modules} cm join {modules} m on m.id = cm.module join {assign} a on a.id = cm.instance WHERE m.name = 'quiz' and a.id = ?", array($assignnum));
+
+        return $realassignnum;
     }
 }
