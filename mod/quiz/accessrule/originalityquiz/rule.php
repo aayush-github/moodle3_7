@@ -26,7 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/accessrule/accessrulebase.php');
-
+require_once($CFG->dirroot . '/plagiarism/originality/locallib.php');
 
 /**
  * A rule requiring the student to promise not to cheat.
@@ -196,6 +196,8 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
         id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
 
+        $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php'>click here</a></div>";
+
         $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
 
         $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
@@ -203,7 +205,10 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $str .= <<<HHH
         <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
         <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
+
 HHH;
+
+
         $str .= "</span>";
         $str .= $OUTPUT->box_end();
 
@@ -325,5 +330,354 @@ HHH;
      */
     public function get_superceded_rules() {
         return array();
+    }
+
+
+
+
+
+
+
+/**
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     * @return bool whether a check is required before the user starts/continues
+     *      their attempt.
+     */
+    public function is_preflight_check_required($attemptid) {
+        global $DB, $CFG, $USER, $COURSE, $PAGE;
+
+        $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+        if (strpos($currentURL,'summary.php') !== false) {
+
+            $cmid = optional_param('cmid', null, PARAM_INT);
+            $attemptobj = quiz_create_attempt_handling_errors($attemptid, $cmid);
+
+           // echo "<pre>";
+            // print_r($attemptobj->get_question());
+            // print_r($attemptobj->get_attempt());
+            //echo "<br><br>";
+            //print_r($attemptobj->get_active_slots());
+            //echo "<br><br>";
+           // echo $attemptobj->get_question_attempt(2)->get_id();
+           // echo $attemptobj->get_question_attempt(2)->get_id() .' ================ '. $attemptobj->get_question_attempt(2)->get_usageid(); ->get_question_attempt(1) quizobj
+           // print_r( $attemptobj->get_uniqueid() );
+
+            $questionsattempts = $DB->get_records('question_attempts', array('questionusageid' => $attemptobj->get_uniqueid()));
+
+            // print_r($questionsattempts);
+
+            foreach ($questionsattempts as $key => $value) {
+                $questionsAttemptSteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $value->id));
+                foreach ($questionsAttemptSteps as $key1 => $value1) {
+                    $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
+                    foreach ($questionsAttemptsData as $key2 => $value2) {
+                        
+                      
+                        log_it("File Identifier: $fileidentifier");
+                        $userid = $USER->id;
+                        $cm = $PAGE->cm;
+                        
+                        list($origserver, $origkey) = $this->_get_server_and_key();
+                        $filename = 'onlinetext-'.$userid.'.txt';
+                        $eventdata = array('courseid'=>$COURSE->id,'contextinstanceid'=>$cmid,'userid'=>$userid,'assignNum'=>$cm->instance);
+                        $fileidentifier = $this->get_unique_id($eventdata['assignNum'], $userid);
+
+                        list($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum) = $this->_get_params_for_file_submission($eventdata);
+
+                        $uploadresult = $this->_do_curl_request($origserver, $origkey, $value2->value, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
+                        
+                        //print_r($cm->instance); exit();
+                       // print_r($origserver); exit();
+                       // echo 'origserver ======== '. $origserver; echo '<br>';
+                       // echo 'origkey ======== '. $origkey ; echo '<br>';
+
+                       /*echo "<br><br>";
+                        echo 'value ======== '. $value2->value ; echo '<br>';
+                        echo 'filename ======== '. $filename ; echo '<br>';
+                        echo 'coursenum ======== '. $coursenum ; echo '<br>';
+                        echo 'cmid ======== '. $cmid ; echo '<br>';
+                        echo 'courseid ======== '. $courseid ; echo '<br>';
+                        echo 'userid ======== '. $userid ; echo '<br>';
+                        echo 'inst ======== '. $inst ; echo '<br>';
+                        echo 'lectid ======== '. $lectid ; echo '<br>';
+                        echo 'coursecategory ======== '. $coursecategory ; echo '<br>';
+                        echo 'coursename ======== '. $coursename ; echo '<br>';
+                        echo 'senderip ======== '. $senderip ; echo '<br>';
+                        echo 'facultycode ======== '. $facultycode ; echo '<br>';
+                        echo 'facultyname ======== '. $facultyname ; echo '<br>';
+                        echo 'deptcode ======== '. $deptcode ; echo '<br>';
+                        echo 'deptname ======== '. $deptname ; echo '<br>';
+                        echo 'checkfile ======== '. $checkfile ; echo '<br>';
+                        echo 'reserve2 ======== '. $reserve2 ; echo '<br>';
+                        echo 'groupsize ======== '. $groupsize ; echo '<br>';
+                        echo 'groupmembers ======== '. $groupmembers ; echo '<br>';
+                        echo 'assignnum ======== '. $assignnum ; echo '<br>';
+                        echo 'realassignnum ======== '. $realassignnum ; echo '<br>';
+                        echo 'fileidentifier ======== '. $fileidentifier ;
+                        exit(); */
+
+                    }
+                }
+            }
+
+            // echo '<br><br><br><br>'.$attemptid."ddddd".$cmid; exit();
+
+
+        }
+        //  echo $attemptid."ddddd"; exit();
+        // if(!empty($_POST)){ print_r( $_POST ); exit(); }
+        return false;
+    }
+
+    /**
+     * Add any field you want to pre-flight check form. You should only do
+     * something here if {@link is_preflight_check_required()} returned true.
+     *
+     * @param mod_quiz_preflight_check_form $quizform the form being built.
+     * @param MoodleQuickForm $mform The wrapped MoodleQuickForm.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     */
+    public function add_preflight_check_form_fields(mod_quiz_preflight_check_form $quizform,
+            MoodleQuickForm $mform, $attemptid) {
+
+    }
+/**
+     * Validate the pre-flight check form submission. You should only do
+     * something here if {@link is_preflight_check_required()} returned true.
+     *
+     * If the form validates, the user will be allowed to continue.
+     *
+     * @param array $data the submitted form data.
+     * @param array $files any files in the submission.
+     * @param array $errors the list of validation errors that is being built up.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     * @return array the update $errors array;
+     */
+    public function validate_preflight_check($data, $files, $errors, $attemptid) {
+        // print_r($data); exit();
+        return $errors;
+    }
+
+    /**
+     * The pre-flight check has passed. This is a chance to record that fact in
+     * some way.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     */
+    public function notify_preflight_check_passed($attemptid) {
+        //echo "dddddddddddd"; exit();
+        // Do nothing by default.
+    }
+
+    /**
+     * This is called when the current attempt at the quiz is finished. This is
+     * used, for example by the password rule, to clear the flag in the session.
+     */
+    public function current_attempt_finished() {
+        echo "xxxxxxxxxxxxxxxx"; exit();
+        // Do nothing by default.
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Get config settings for originality server and key.
+     * @return array() - strings
+     */
+    private function _get_server_and_key() {
+        global $DB, $CFG, $USER;
+        $origkey = $DB->get_record('config_plugins', array('name' => 'originality_key', 'plugin' => 'plagiarism'));
+        $origserver = $DB->get_record('config_plugins', array('name' => 'originality_server', 'plugin' => 'plagiarism'));
+        return array($origserver, $origkey);
+    }
+
+
+    /**
+     * Set up parameters for assignment submission
+     * @param array  $eventdata - data about the event
+     * @return array - parameters for upload
+     */
+    private function _get_params_for_file_submission($eventdata) {
+        global $DB, $CFG, $USER;
+        $coursenum = $eventdata['courseid'];
+        $cmid = $eventdata['contextinstanceid']; // In events2 api, I think this is the course module id (Yael).
+        $courseid = $eventdata['courseid'];
+        $userid = $eventdata['userid'];
+        $inst = "0";
+        $coursecategory = null;
+        $coursename = null;
+        $senderip = get_client_ip();
+        // To get course category $coursecategory = $DB->get_field_sql("SELECT name FROM {course_categories} WHERE id = (SELECT category FROM {course} WHERE id = $courseid)");.
+        // To get the course name $coursename = $DB->get_field('course','fullname',array('id'=>$courseid));.
+        $facultycode = 'Quiz';
+        $facultyname = 'Quiz';
+        $deptcode = 200;
+        $deptname = 'DepartmentName';
+        $coursecategory = 'CourseCategory';
+        $coursename = 'CourseName';
+
+
+        // Get lecturer ID.
+        $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
+        require_once($CFG->libdir. '/coursecatlib.php');
+        $tmpCourse = new course_in_list($course);
+        if ($tmpCourse->has_course_contacts()) {
+            foreach ($tmpCourse->get_course_contacts() as $useridnum => $coursecontact) {
+                $lectid = $coursecontact['user']->id;
+            }
+        }
+
+        $coursecategory = $DB->get_field_sql("SELECT name FROM {course_categories} WHERE id = (SELECT category FROM {course} WHERE id = $courseid)");
+        $coursename = $DB->get_field('course','fullname',array('id'=>$courseid));
+
+        $checkfile = '1'; // Indicator whether to check file for plagiarism, for now default is 1.
+        $reserve2 = 'Reserve1';
+        $groupsize = 1; // In the future set to # of group members submitting the work together.
+
+        // Due to a problem with using the hebrew letter aleph in urls sent to the server, we are using constants for the names and for various other fields.
+
+        $firstname = str_replace(' ', '-', $USER->firstname);
+        $lastname = str_replace(' ', '-', $USER->lastname);
+
+        $groupmembers = str_replace(' ', '-', $firstname) . '~' . str_replace(' ', '-', $lastname);
+
+
+
+        if (!isset($eventdata['assignNum'])) {
+            if ($records = $DB->get_records_menu('course_modules', array('id' => $cmid), '', 'course,instance')) {
+                if (isset($records[$coursenum]) && !empty($records[$coursenum])) {
+                    $assignnum = $records[$coursenum];
+                }
+            }
+        } else {
+            $assignnum = $eventdata['assignNum'];
+        }
+
+        $realassignnum = $this->get_real_assignment_number($assignnum);
+
+
+        return array($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode,
+                     $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum);
+    }
+
+    /**
+     * Sned curl request to originality server
+     * @param list - parameters for upload
+     * @return array - boolean and file upload id (from originality server response), or error string
+     */
+    private function _do_curl_request($origserver, $origkey, $content, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier) {
+        $content = base64_encode($content);
+
+        $data = array("FileName" => $filename ? $filename : '',
+                      "SenderIP" => $senderip ? $senderip : '',
+                      "FacultyCode" => $facultycode ? $facultycode : '',
+                      "FacultyName" => $facultyname ? $facultyname : '',
+                      "DeptCode" => $deptcode ? $deptcode : '',
+                      "DeptName" => $deptname ? $deptname : '',
+                      "CourseCategory" => $coursecategory ? $coursecategory : '',
+                      "CourseCode" => $coursenum ? $coursenum : '',
+                      "CourseName" => $coursename ? $coursename : '',
+                      "AssignmentCode" => $assignnum ? $assignnum : '',
+                      "MoodleAssignPageNo" => $realassignnum ? $realassignnum : '',
+                      "StudentCode" => $userid ? $userid : '',
+                      "LecturerCode" => $lectid ? $lectid : '',
+                      "GroupMembers" => $groupmembers ? $groupmembers : '',
+                      "DocSequence" => $fileidentifier ? $fileidentifier : '',
+                      "file" => $content ? $content : '',
+                    );
+
+        $datawithoutfilecontents = $data;
+
+        $datawithoutfilecontents['file'] = '';
+
+        $data_string = json_encode($data);
+
+        $datawithoutfilecontentsstring = json_encode($datawithoutfilecontents, JSON_UNESCAPED_UNICODE);
+
+        //log everything sending other than the encoded file
+        $data['file'] = '';
+
+        $dataLog = 'Uploading file","'.$data['FileName'].'","'.$data['SenderIP'].'","'.$data['FacultyCode'].'","'.$data['FacultyName'].'","'.$data['DeptCode'].'","'.$data['DeptName'].'","'.$data['CourseCategory'].'","'.$data['CourseCode'].'","'.$data['CourseName'].'","'.$data['AssignmentCode'].'","'.$data['MoodleAssignPageNo'].'","'.$data['StudentCode'].'","'.$data['LecturerCode'].'","'.$data['GroupMembers'].'","'.$data['DocSequence'].'","'.$data['file'].'';
+
+        log_it($dataLog);
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $origserver->value .'documents',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => "POST",
+            CURLOPT_POSTFIELDS => $data_string,
+            CURLOPT_HTTPHEADER => array(
+                "authorization: " . $origkey->value,
+                "cache-control: no-cache",
+                "content-type: application/json",
+            ),
+        ));
+
+        $output = curl_exec($curl);
+
+        $outputarray = json_decode($output, true);
+
+        // print_r($outputarray);
+
+        $err = curl_error($curl);
+
+        curl_close($curl);
+
+        log_it("Uploading originality file ".$outputarray['Id']." curl output: " . strip_tags($output));
+
+        if ($err) {
+            $assignmentname = $this->get_assignment_name($assignnum);
+            $username = $this->get_user_name($userid);
+            log_it('Curl Error: '.$err. '. Client domain : ' . $_SERVER['HTTP_HOST'].
+               " for course : $coursename, user $userid : $username and assignment $assignnum : $assignmentname" );
+            return array(false, $err);
+        } else {
+            if (isset($outputarray['Id'])) {
+                log_it('Curl output: '.$outputarray['Id']);
+                return array(true, $outputarray['Id']);
+            }
+            else {
+                return array(false, 'No File Id returned from curl upload.');
+            }
+        }
+    }
+    // Keep unique file identifiers in the requests table per user and assignment so if there are multiple requests not yet answered, when get response in report.php we will know which request it belongs to.
+
+    /**
+     * Keep unique file identifiers in the requests table per user and assignment so if there are multiple requests not yet answered, when get response in report.php we will know which request it belongs to.
+     * @param list - assignnum and userid
+     * @return int
+     */
+    private function get_unique_id($assignnum, $userid){
+      global $DB;
+      $maxreqid = $DB->get_record_sql("select max(file_identifier) as maxid from {plagiarism_originality_req} where assignment=? and userid=?", array($assignnum, $userid));
+      if ($maxreqid){
+          return $maxreqid->maxid+1;
+      }else{
+          return 1;
+      }
+    }
+
+    private function get_real_assignment_number($assignnum){
+        global $DB;
+
+        $realassignnum = $DB->get_field_sql("SELECT cm.id from {course_modules} cm join {modules} m on m.id = cm.module join {assign} a on a.id = cm.instance WHERE m.name = 'quiz' and a.id = ?", array($assignnum));
+
+        return $realassignnum;
     }
 }
