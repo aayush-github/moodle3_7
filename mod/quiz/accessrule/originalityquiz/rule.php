@@ -196,6 +196,8 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
         id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
 
+        $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php'>click here</a></div>";
+
         $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
 
         $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
@@ -203,7 +205,10 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $str .= <<<HHH
         <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
         <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
+
 HHH;
+
+
         $str .= "</span>";
         $str .= $OUTPUT->box_end();
 
@@ -340,7 +345,7 @@ HHH;
      *      their attempt.
      */
     public function is_preflight_check_required($attemptid) {
-        global $DB, $CFG, $USER;
+        global $DB, $CFG, $USER, $COURSE, $PAGE;
 
         $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
         if (strpos($currentURL,'summary.php') !== false) {
@@ -367,16 +372,50 @@ HHH;
                 foreach ($questionsAttemptSteps as $key1 => $value1) {
                     $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
                     foreach ($questionsAttemptsData as $key2 => $value2) {
-                        //echo $value2->value;
-                        $userid = 2;
+                        
+                      
+                        log_it("File Identifier: $fileidentifier");
+                        $userid = $USER->id;
+                        $cm = $PAGE->cm;
+                        
                         list($origserver, $origkey) = $this->_get_server_and_key();
                         $filename = 'onlinetext-'.$userid.'.txt';
-                        $eventdata = array('courseid'=>5,'contextinstanceid'=>$cmid,'userid'=>2,'assignNum'=>712);
+                        $eventdata = array('courseid'=>$COURSE->id,'contextinstanceid'=>$cmid,'userid'=>$userid,'assignNum'=>$cm->instance);
+                        $fileidentifier = $this->get_unique_id($eventdata['assignNum'], $userid);
+
                         list($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum) = $this->_get_params_for_file_submission($eventdata);
 
                         $uploadresult = $this->_do_curl_request($origserver, $origkey, $value2->value, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
+                        
+                        //print_r($cm->instance); exit();
+                       // print_r($origserver); exit();
+                       // echo 'origserver ======== '. $origserver; echo '<br>';
+                       // echo 'origkey ======== '. $origkey ; echo '<br>';
 
-                       // print_r($uploadresult);
+                       /*echo "<br><br>";
+                        echo 'value ======== '. $value2->value ; echo '<br>';
+                        echo 'filename ======== '. $filename ; echo '<br>';
+                        echo 'coursenum ======== '. $coursenum ; echo '<br>';
+                        echo 'cmid ======== '. $cmid ; echo '<br>';
+                        echo 'courseid ======== '. $courseid ; echo '<br>';
+                        echo 'userid ======== '. $userid ; echo '<br>';
+                        echo 'inst ======== '. $inst ; echo '<br>';
+                        echo 'lectid ======== '. $lectid ; echo '<br>';
+                        echo 'coursecategory ======== '. $coursecategory ; echo '<br>';
+                        echo 'coursename ======== '. $coursename ; echo '<br>';
+                        echo 'senderip ======== '. $senderip ; echo '<br>';
+                        echo 'facultycode ======== '. $facultycode ; echo '<br>';
+                        echo 'facultyname ======== '. $facultyname ; echo '<br>';
+                        echo 'deptcode ======== '. $deptcode ; echo '<br>';
+                        echo 'deptname ======== '. $deptname ; echo '<br>';
+                        echo 'checkfile ======== '. $checkfile ; echo '<br>';
+                        echo 'reserve2 ======== '. $reserve2 ; echo '<br>';
+                        echo 'groupsize ======== '. $groupsize ; echo '<br>';
+                        echo 'groupmembers ======== '. $groupmembers ; echo '<br>';
+                        echo 'assignnum ======== '. $assignnum ; echo '<br>';
+                        echo 'realassignnum ======== '. $realassignnum ; echo '<br>';
+                        echo 'fileidentifier ======== '. $fileidentifier ;
+                        exit(); */
 
                     }
                 }
@@ -479,8 +518,8 @@ HHH;
         $senderip = get_client_ip();
         // To get course category $coursecategory = $DB->get_field_sql("SELECT name FROM {course_categories} WHERE id = (SELECT category FROM {course} WHERE id = $courseid)");.
         // To get the course name $coursename = $DB->get_field('course','fullname',array('id'=>$courseid));.
-        $facultycode = 100;
-        $facultyname = 'FacultyName';
+        $facultycode = 'Quiz';
+        $facultyname = 'Quiz';
         $deptcode = 200;
         $deptname = 'DepartmentName';
         $coursecategory = 'CourseCategory';
