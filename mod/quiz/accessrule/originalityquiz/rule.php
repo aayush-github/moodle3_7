@@ -196,7 +196,8 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
         id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
 
-        $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php'>click here</a></div>";
+        $id = optional_param('id', 0, PARAM_INT);
+        $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php?id=".$id."&mode=overview'>click here</a></div>";
 
         $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
 
@@ -345,6 +346,59 @@ HHH;
      *      their attempt.
      */
     public function is_preflight_check_required($attemptid) {
+        
+        //  echo $attemptid."ddddd"; exit();
+        // if(!empty($_POST)){ print_r( $_POST ); exit(); }
+        return false;
+    }
+
+    /**
+     * Add any field you want to pre-flight check form. You should only do
+     * something here if {@link is_preflight_check_required()} returned true.
+     *
+     * @param mod_quiz_preflight_check_form $quizform the form being built.
+     * @param MoodleQuickForm $mform The wrapped MoodleQuickForm.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     */
+    public function add_preflight_check_form_fields(mod_quiz_preflight_check_form $quizform,
+            MoodleQuickForm $mform, $attemptid) {
+
+    }
+/**
+     * Validate the pre-flight check form submission. You should only do
+     * something here if {@link is_preflight_check_required()} returned true.
+     *
+     * If the form validates, the user will be allowed to continue.
+     *
+     * @param array $data the submitted form data.
+     * @param array $files any files in the submission.
+     * @param array $errors the list of validation errors that is being built up.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     * @return array the update $errors array;
+     */
+    public function validate_preflight_check($data, $files, $errors, $attemptid) {
+        // print_r($data); exit();
+        return $errors;
+    }
+
+    /**
+     * The pre-flight check has passed. This is a chance to record that fact in
+     * some way.
+     * @param int|null $attemptid the id of the current attempt, if there is one,
+     *      otherwise null.
+     */
+    public function notify_preflight_check_passed($attemptid) {
+        //echo "dddddddddddd"; exit();
+        // Do nothing by default.
+    }
+
+    /**
+     * This is called when the current attempt at the quiz is finished. This is
+     * used, for example by the password rule, to clear the flag in the session.
+     */
+    public function current_attempt_finished() {
         global $DB, $CFG, $USER, $COURSE, $PAGE;
 
         $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
@@ -425,59 +479,6 @@ HHH;
 
 
         }
-        //  echo $attemptid."ddddd"; exit();
-        // if(!empty($_POST)){ print_r( $_POST ); exit(); }
-        return false;
-    }
-
-    /**
-     * Add any field you want to pre-flight check form. You should only do
-     * something here if {@link is_preflight_check_required()} returned true.
-     *
-     * @param mod_quiz_preflight_check_form $quizform the form being built.
-     * @param MoodleQuickForm $mform The wrapped MoodleQuickForm.
-     * @param int|null $attemptid the id of the current attempt, if there is one,
-     *      otherwise null.
-     */
-    public function add_preflight_check_form_fields(mod_quiz_preflight_check_form $quizform,
-            MoodleQuickForm $mform, $attemptid) {
-
-    }
-/**
-     * Validate the pre-flight check form submission. You should only do
-     * something here if {@link is_preflight_check_required()} returned true.
-     *
-     * If the form validates, the user will be allowed to continue.
-     *
-     * @param array $data the submitted form data.
-     * @param array $files any files in the submission.
-     * @param array $errors the list of validation errors that is being built up.
-     * @param int|null $attemptid the id of the current attempt, if there is one,
-     *      otherwise null.
-     * @return array the update $errors array;
-     */
-    public function validate_preflight_check($data, $files, $errors, $attemptid) {
-        // print_r($data); exit();
-        return $errors;
-    }
-
-    /**
-     * The pre-flight check has passed. This is a chance to record that fact in
-     * some way.
-     * @param int|null $attemptid the id of the current attempt, if there is one,
-     *      otherwise null.
-     */
-    public function notify_preflight_check_passed($attemptid) {
-        //echo "dddddddddddd"; exit();
-        // Do nothing by default.
-    }
-
-    /**
-     * This is called when the current attempt at the quiz is finished. This is
-     * used, for example by the password rule, to clear the flag in the session.
-     */
-    public function current_attempt_finished() {
-        echo "xxxxxxxxxxxxxxxx"; exit();
         // Do nothing by default.
     }
 
