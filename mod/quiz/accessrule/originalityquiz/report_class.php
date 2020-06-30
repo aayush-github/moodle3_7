@@ -26,6 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/report/overview/report.php');
+require_once($CFG->dirroot . '/mod/quiz/accessrule/originalityquiz/report_table_class.php');
 
 class originality_quiz_overview_report extends quiz_overview_report {
 
@@ -58,8 +59,10 @@ class originality_quiz_overview_report extends quiz_overview_report {
         // Prepare for downloading, if applicable.
         $courseshortname = format_string($course->shortname, true,
                 array('context' => context_course::instance($course->id)));
-        $table = new quiz_overview_table($quiz, $this->context, $this->qmsubselect,
+
+        $table = new originality_quiz_overview_table($quiz, $this->context, $this->qmsubselect,
                 $options, $groupstudentsjoins, $studentsjoins, $questions, $options->get_url());
+
         $filename = quiz_report_download_filename(get_string('overviewfilename', 'quiz_overview'),
                 $courseshortname, $quiz->name);
         $table->is_downloading($options->download, $filename,
@@ -173,6 +176,7 @@ class originality_quiz_overview_report extends quiz_overview_report {
             $this->add_user_columns($table, $columns, $headers);
             $this->add_state_column($columns, $headers);
             $this->add_time_columns($columns, $headers);
+            $this->add_plagrism_columns($columns, $headers);
 
             $this->add_grade_columns($quiz, $options->usercanseegrades, $columns, $headers, false);
 
@@ -235,6 +239,34 @@ class originality_quiz_overview_report extends quiz_overview_report {
         return true;
     }
 
+
+    /**
+     * Add all the time-related columns to the $columns and $headers arrays.
+     * @param array $columns the list of columns. Added to.
+     * @param array $headers the columns headings. Added to.
+     */
+    protected function add_time_columns(&$columns, &$headers) {
+        $columns[] = 'timestart';
+        $headers[] = get_string('startedon', 'quiz');
+
+        $columns[] = 'timefinish';
+        $headers[] = get_string('timecompleted', 'quiz');
+
+        $columns[] = 'duration';
+        $headers[] = get_string('attemptduration', 'quiz');
+        // $headers[] = get_string('attemptduration', 'quiz');
+    }
+
+    /**
+     * Add all the time-related columns to the $columns and $headers arrays.
+     * @param array $columns the list of columns. Added to.
+     * @param array $headers the columns headings. Added to.
+     */
+    protected function add_plagrism_columns(&$columns, &$headers) {
+       
+        $columns[] = 'plagrism';
+        $headers[] = get_string('plagiarism_column', 'quizaccess_originalityquiz');
+    }
 
 
 

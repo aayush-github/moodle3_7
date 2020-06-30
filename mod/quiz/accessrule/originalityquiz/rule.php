@@ -57,13 +57,6 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         global $CFG;
         global $USER;
 
-
-
-
-
-
-
-        
         $plagiarismsettings = (array)get_config('plagiarism');
         $adminallowsstudentviewreport = $plagiarismsettings['originality_view_report'];
 
@@ -109,21 +102,31 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
 
 
     public static function save_settings($quiz) {
-        global $DB;
-        /* if (empty($quiz->originalityquiz_allowedkeys)) {
-            $DB->delete_records('quizaccess_originalityquiz', array('quizid' => $quiz->id));
-        } else {
-            $record = $DB->get_record('quizaccess_originalityquiz', array('quizid' => $quiz->id));
-            if (!$record) {
-                $record = new stdClass();
-                $record->quizid = $quiz->id;
-                $record->allowedkeys = self::clean_keys($quiz->originalityquiz_allowedkeys);
-                $DB->insert_record('quizaccess_originalityquiz', $record);
-            } else {
-                $record->allowedkeys = self::clean_keys($quiz->originalityquiz_allowedkeys);
-                $DB->update_record('quizaccess_originalityquiz', $record);
+        global $DB, $USER;
+        $plagiarismsettings = (array)get_config('plagiarism');
+
+        if (!empty($plagiarismsettings['originality_use'])) { // This is the admin setting.
+            $setting = array('Yes', 'No');
+
+            $select = 'cm = ?';
+
+            // This is the lecturer setting.
+            if ($originalityuse = $DB->get_record_select('plagiarism_originality_conf', $select, array($quiz->coursemodule))) {
+                $DB->delete_records_select('plagiarism_originality_conf', $select, array($quiz->coursemodule));
             }
-        } */
+            if (isset($quiz->originality_use)) {
+                if ($quiz->originality_use != 0) {
+                    $newelement = new stdClass();
+                    $newelement->cm = $quiz->coursemodule;
+                    $newelement->student_view_report  = $quiz->student_view_report;
+                    $DB->insert_record('plagiarism_originality_conf', $newelement);
+                    
+                    // Log for course setting of plagiarism is updated
+                    log_it("Update : Originality setting to '".$setting[$_POST['originality_use']]."' by user ".$USER->id." for Course Id ".$_POST['course'].", Assignment Id ".$_POST['coursemodule']." " );
+                }
+            }
+        }
+       
     }
 
     public static function delete_settings($quiz) {
@@ -169,53 +172,77 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
      */
     public static function get_blocked_user_message() {
         
-        global $OUTPUT, $PAGE, $DB;
+        global $OUTPUT, $PAGE, $DB, $USER, $COURSE, $SESSION;
 
         if ($PAGE->pagetype != 'mod-quiz-view') {
             return;
         }
+        $id = optional_param('id', null, PARAM_INT);
+        list ($course, $cm) = get_course_and_cm_from_cmid($id, 'quiz');
+        $quizobj = quiz::create($cm->instance, $USER->id);
 
         $plagiarismsettings = (array)get_config('plagiarism');
         $select = 'cm = ?';
 
+        if (!empty($plagiarismsettings['originality_use'])) {
+            if (!$originalityuse = $DB->get_records_select('plagiarism_originality_conf', $select, array($cm->id))) {
+                return;
+            }
+        } 
 
-        $str = $OUTPUT->box_start('generalbox boxaligncenter', 'intro-originality'); //  2016-01-01 Changed id of element from 'intro'.
-
-        $formatoptions = new stdClass;
-        $formatoptions->noclean = true;
-        $path = core_component::get_plugin_directory("mod", "originality");
-         $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
-         $PAGE->requires->js('/mod/quiz/accessrule/originalityquiz/javascript/originalityquiz.js?v=24');
-        $str .= "<span style='text-align: left'>";
-        $str .= format_text(get_string("originalitystudentdisclosure", "plagiarism_originality"), FORMAT_MOODLE, $formatoptions);
-
-        // Ben Gurion University requested an additional statement here.
-        $bgu_addition = '';
-        
-        //  "I agree supports English and Hebrew
-        $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
-        id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
-
-        $id = optional_param('id', 0, PARAM_INT);
-        $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php?id=".$id."&mode=overview'>click here</a></div>";
-
-        $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
-
-        $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
-
-        $str .= <<<HHH
-        <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
-        <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
-
-HHH;
+        $context = get_context_instance(CONTEXT_COURSE,$COURSE->id);
+        $roleassignments = $DB->get_record('role_assignments', ['userid' => $USER->id, 'contextid' => $context->id]);
+  
+  
+        if($quizobj->has_questions()){
+            $plagiarismsettings = (array)get_config('plagiarism');
+            $select = 'cm = ?';
 
 
-        $str .= "</span>";
-        $str .= $OUTPUT->box_end();
+            $str = $OUTPUT->box_start('generalbox boxaligncenter', 'intro-originality'); //  2016-01-01 Changed id of element from 'intro'.
 
-        // $result = $PAGE->requires->js_call_amd('quizaccess_originalityquiz/timer', 'init', array($str));
+            $formatoptions = new stdClass;
+            $formatoptions->noclean = true;
+            $path = core_component::get_plugin_directory("mod", "originality");
+             $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
+             $PAGE->requires->js('/mod/quiz/accessrule/originalityquiz/javascript/originalityquiz.js?v=24');
+             if($SESSION->lang == 'he' || $SESSION->lang == 'ar_old'){
+                $str .= "<span style='text-align: right'>";
+             }else{
+                $str .= "<span style='text-align: left'>";
+             }
+            
+            $str .= format_text(get_string("originalitystudentdisclosure", "plagiarism_originality"), FORMAT_MOODLE, $formatoptions);
 
-        return $str;
+            // Ben Gurion University requested an additional statement here.
+            $bgu_addition = '';
+            
+            //  "I agree supports English and Hebrew
+            $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
+            id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
+
+            if($roleassignments->roleid != 5){
+                $id = optional_param('id', 0, PARAM_INT);
+                $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php?id=".$id."&mode=overview'>click here</a></div>";
+            }
+
+            $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
+
+            $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
+
+            $str .= <<<HHH
+            <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
+            <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
+            HHH;
+
+
+            $str .= "</span>";
+            $str .= $OUTPUT->box_end();
+
+            return $str;
+        }else{
+            return;
+        }
     }
 
     /**
@@ -346,9 +373,74 @@ HHH;
      *      their attempt.
      */
     public function is_preflight_check_required($attemptid) {
-        
-        //  echo $attemptid."ddddd"; exit();
-        // if(!empty($_POST)){ print_r( $_POST ); exit(); }
+        global $DB, $CFG, $USER, $COURSE, $PAGE;
+
+        $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+        if (strpos($currentURL,'summary.php') !== false) {
+
+            $cmid = optional_param('cmid', null, PARAM_INT);
+            $attemptobj = quiz_create_attempt_handling_errors($attemptid, $cmid);
+
+            $plagiarismsettings = (array)get_config('plagiarism');
+            $select = 'cm = ?';
+
+            if (!empty($plagiarismsettings['originality_use'])) {
+                if (!$originalityuse = $DB->get_records_select('plagiarism_originality_conf', $select, array($cmid) )) {
+                    return false;
+                }
+            } 
+
+
+            $questionsattempts = $DB->get_records('question_attempts', array('questionusageid' => $attemptobj->get_uniqueid()));
+
+            $content = '';
+            foreach ($questionsattempts as $key => $value) {
+                $qtype = $DB->get_record('question', array('id' => $value->questionid ));
+                if($qtype->qtype){
+                    $questionsAttemptSteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $value->id));
+                    foreach ($questionsAttemptSteps as $key1 => $value1) {
+                        $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
+                        foreach ($questionsAttemptsData as $key2 => $value2) {
+                            
+                         
+                              $content .= "<b>Question ".$value->slot."</b><br>";
+                              $content .= $value2->value."<br><br><br>";
+                          
+                        }
+                    }
+                }
+            }
+
+            /* echo $content;
+            $modulecontext = context_module::instance($cmid);
+            $fs = get_file_storage();
+            $files = $fs->get_area_files($modulecontext->id, 'quizsubmission_file', 'submission_files', $cmid);
+            print_r($files);
+            exit(); */
+
+
+          
+            if($content){
+                log_it("File Identifier: $fileidentifier");
+                $userid = $USER->id;
+                $cm = $PAGE->cm;
+                
+                list($origserver, $origkey) = $this->_get_server_and_key();
+                $filename = 'onlinetext-'.$userid.'.txt';
+                $eventdata = array('courseid'=>$COURSE->id,'contextinstanceid'=>$cmid,'userid'=>$userid,'assignNum'=>$cm->instance);
+                $fileidentifier = $this->get_unique_id($eventdata['assignNum'], $userid);
+
+                list($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum) = $this->_get_params_for_file_submission($eventdata);
+
+                $uploadresult = $this->_do_curl_request($origserver, $origkey, $content, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
+                
+                log_it("Adding request record: assignment: $assignnum, user: $userid, filename: $filename, fileidentifer: $fileidentifier");
+
+                $this->_add_request_record($assignnum, $userid, $filename, $fileidentifier, -1, $uploadresult[0]);
+            }
+            
+        }
+
         return false;
     }
 
@@ -399,86 +491,7 @@ HHH;
      * used, for example by the password rule, to clear the flag in the session.
      */
     public function current_attempt_finished() {
-        global $DB, $CFG, $USER, $COURSE, $PAGE;
-
-        $currentURL = $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
-        if (strpos($currentURL,'summary.php') !== false) {
-
-            $cmid = optional_param('cmid', null, PARAM_INT);
-            $attemptobj = quiz_create_attempt_handling_errors($attemptid, $cmid);
-
-           // echo "<pre>";
-            // print_r($attemptobj->get_question());
-            // print_r($attemptobj->get_attempt());
-            //echo "<br><br>";
-            //print_r($attemptobj->get_active_slots());
-            //echo "<br><br>";
-           // echo $attemptobj->get_question_attempt(2)->get_id();
-           // echo $attemptobj->get_question_attempt(2)->get_id() .' ================ '. $attemptobj->get_question_attempt(2)->get_usageid(); ->get_question_attempt(1) quizobj
-           // print_r( $attemptobj->get_uniqueid() );
-
-            $questionsattempts = $DB->get_records('question_attempts', array('questionusageid' => $attemptobj->get_uniqueid()));
-
-            // print_r($questionsattempts);
-
-            foreach ($questionsattempts as $key => $value) {
-                $questionsAttemptSteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $value->id));
-                foreach ($questionsAttemptSteps as $key1 => $value1) {
-                    $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
-                    foreach ($questionsAttemptsData as $key2 => $value2) {
-                        
-                      
-                        log_it("File Identifier: $fileidentifier");
-                        $userid = $USER->id;
-                        $cm = $PAGE->cm;
-                        
-                        list($origserver, $origkey) = $this->_get_server_and_key();
-                        $filename = 'onlinetext-'.$userid.'.txt';
-                        $eventdata = array('courseid'=>$COURSE->id,'contextinstanceid'=>$cmid,'userid'=>$userid,'assignNum'=>$cm->instance);
-                        $fileidentifier = $this->get_unique_id($eventdata['assignNum'], $userid);
-
-                        list($coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum) = $this->_get_params_for_file_submission($eventdata);
-
-                        $uploadresult = $this->_do_curl_request($origserver, $origkey, $value2->value, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
-                        
-                        //print_r($cm->instance); exit();
-                       // print_r($origserver); exit();
-                       // echo 'origserver ======== '. $origserver; echo '<br>';
-                       // echo 'origkey ======== '. $origkey ; echo '<br>';
-
-                       /*echo "<br><br>";
-                        echo 'value ======== '. $value2->value ; echo '<br>';
-                        echo 'filename ======== '. $filename ; echo '<br>';
-                        echo 'coursenum ======== '. $coursenum ; echo '<br>';
-                        echo 'cmid ======== '. $cmid ; echo '<br>';
-                        echo 'courseid ======== '. $courseid ; echo '<br>';
-                        echo 'userid ======== '. $userid ; echo '<br>';
-                        echo 'inst ======== '. $inst ; echo '<br>';
-                        echo 'lectid ======== '. $lectid ; echo '<br>';
-                        echo 'coursecategory ======== '. $coursecategory ; echo '<br>';
-                        echo 'coursename ======== '. $coursename ; echo '<br>';
-                        echo 'senderip ======== '. $senderip ; echo '<br>';
-                        echo 'facultycode ======== '. $facultycode ; echo '<br>';
-                        echo 'facultyname ======== '. $facultyname ; echo '<br>';
-                        echo 'deptcode ======== '. $deptcode ; echo '<br>';
-                        echo 'deptname ======== '. $deptname ; echo '<br>';
-                        echo 'checkfile ======== '. $checkfile ; echo '<br>';
-                        echo 'reserve2 ======== '. $reserve2 ; echo '<br>';
-                        echo 'groupsize ======== '. $groupsize ; echo '<br>';
-                        echo 'groupmembers ======== '. $groupmembers ; echo '<br>';
-                        echo 'assignnum ======== '. $assignnum ; echo '<br>';
-                        echo 'realassignnum ======== '. $realassignnum ; echo '<br>';
-                        echo 'fileidentifier ======== '. $fileidentifier ;
-                        exit(); */
-
-                    }
-                }
-            }
-
-            // echo '<br><br><br><br>'.$attemptid."ddddd".$cmid; exit();
-
-
-        }
+        
         // Do nothing by default.
     }
 
@@ -655,6 +668,36 @@ HHH;
             else {
                 return array(false, 'No File Id returned from curl upload.');
             }
+        }
+    }
+
+    
+    /**
+     * Add request record to the originality requests table
+     * @param list - info to store about the request
+     */
+    private function _add_request_record($assignnum, $userid, $filename, $fileidentifier, $moodlefileid, $uploadresult) {
+        global $DB, $CFG, $USER;
+
+        $file = delimit_fieldname('file');
+
+        $newelement = new stdClass();
+        $newelement->assignment = $assignnum;
+        $newelement->userid = $userid;
+        $newelement->$file = $filename;
+        $newelement->file_identifier =$fileidentifier;
+        $newelement->moodle_file_id = $moodlefileid;
+        $newelement->upload_error = $uploadresult ? 0 : 1;
+        $newelement->submit_date = time();
+
+        $res = $DB->insert_record('plagiarism_originality_req', $newelement);
+
+        if (!$res) {
+            log_it("Error adding request record");
+        }
+
+        if (is_mssql_db()) {
+            $DB->set_field_select('plagiarism_originality_req', '[file]', $filename, 'id=?', array($res));
         }
     }
     // Keep unique file identifiers in the requests table per user and assignment so if there are multiple requests not yet answered, when get response in report.php we will know which request it belongs to.

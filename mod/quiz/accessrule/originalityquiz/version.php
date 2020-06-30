@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2018080900;
+$plugin->version   = 2018081000;
 $plugin->requires  = 2017111300;
 $plugin->cron      = 0;
 $plugin->component = 'quizaccess_originalityquiz';
