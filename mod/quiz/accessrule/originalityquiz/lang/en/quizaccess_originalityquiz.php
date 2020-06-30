@@ -97,3 +97,7 @@ $string['originality_server_test'] = "<b>Test Server</b>&nbsp;&nbsp;<span style=
 
 $string['originality_before_turned_on']= "Submitted before Originality turned on";
 $string['scorm:addinstance'] = 'plagiarism originality';
+
+// NEW
+
+$string['plagiarism_column']= "Originality Report";
