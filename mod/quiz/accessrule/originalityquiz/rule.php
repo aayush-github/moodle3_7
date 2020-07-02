@@ -122,7 +122,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
                     $DB->insert_record('plagiarism_originality_conf', $newelement);
                     
                     // Log for course setting of plagiarism is updated
-                    log_it("Update : Originality setting to '".$setting[$_POST['originality_use']]."' by user ".$USER->id." for Course Id ".$_POST['course'].", Assignment Id ".$_POST['coursemodule']." " );
+                    log_it("Update : Originality setting to '".$setting[$_POST['originality_use']]."' by user ".$USER->id." for Course Id ".$_POST['course'].", Quiz Id ".$_POST['coursemodule']." " );
                 }
             }
         }
@@ -204,39 +204,43 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
             $formatoptions = new stdClass;
             $formatoptions->noclean = true;
             $path = core_component::get_plugin_directory("mod", "originality");
-             $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
-             $PAGE->requires->js('/mod/quiz/accessrule/originalityquiz/javascript/originalityquiz.js?v=24');
+             
              if($SESSION->lang == 'he' || $SESSION->lang == 'ar_old'){
                 $str .= "<span style='text-align: right'>";
              }else{
                 $str .= "<span style='text-align: left'>";
              }
             
-            $str .= format_text(get_string("originalitystudentdisclosure", "plagiarism_originality"), FORMAT_MOODLE, $formatoptions);
-
-            // Ben Gurion University requested an additional statement here.
-            $bgu_addition = '';
-            
-            //  "I agree supports English and Hebrew
-            $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
-            id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
 
             if($roleassignments->roleid != 5){
                 $id = optional_param('id', 0, PARAM_INT);
                 $str .= "<div class='text_to_html'>For Plagrism report please <a href='accessrule/originalityquiz/reports.php?id=".$id."&mode=overview'>click here</a></div>";
+            }else{
+                $PAGE->requires->js('/plagiarism/originality/javascript/jquery-3.1.1.min.js');
+                $PAGE->requires->js('/mod/quiz/accessrule/originalityquiz/javascript/originalityquiz.js?v=24');
+                $str .= format_text(get_string("originalitystudentdisclosure", "plagiarism_originality"), FORMAT_MOODLE, $formatoptions);
+
+                // Ben Gurion University requested an additional statement here.
+                $bgu_addition = '';
+                
+                //  "I agree supports English and Hebrew
+                $str.= "<div style='margin-top:10px'> <input  style='vertical-align: middle; margin-bottom: 4px; margin-right: 5px;'
+                id='iagree' name='iagree' type='checkbox'/>". "<label for='iagree' >".get_string('agree_checked', 'plagiarism_originality').$bgu_addition ."</label>" ."</div>";
+
+                $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
+
+                $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
+
+                $str .= <<<HHH
+                <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
+                <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
+                HHH;
+
             }
 
-            $click_checkbox_msg = get_string("originality_click_checkbox_msg", 'plagiarism_originality');
-
-            $click_checkbox_button_text = get_string("originality_click_checkbox_button_text", 'plagiarism_originality');
-
-            $str .= <<<HHH
-            <span id='click_checkbox_msg' style='display:none;'>$click_checkbox_msg</span>
-            <span id='click_checkbox_button_text' style='display:none;'>$click_checkbox_button_text</span>
-            HHH;
-
-
             $str .= "</span>";
+
+
             $str .= $OUTPUT->box_end();
 
             return $str;
@@ -268,7 +272,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         $errors = array();
         $keys = self::split_keys($keys);
         $uniquekeys = array();
-         foreach ($keys as $i => $key) {
+        /* foreach ($keys as $i => $key) {
             if (!preg_match('~^[a-f0-9]{64}$~', $key)) {
                 $errors[] = get_string('allowedbrowserkeyssyntax', 'quizaccess_originalityquiz');
                 break;
@@ -276,7 +280,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
         }
         if (count($keys) != count(array_unique($keys))) {
             $errors[] = get_string('allowedbrowserkeysdistinct', 'quizaccess_originalityquiz');
-        } 
+        } */
         return $errors;
     }
 
@@ -396,15 +400,16 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
             $content = '';
             foreach ($questionsattempts as $key => $value) {
                 $qtype = $DB->get_record('question', array('id' => $value->questionid ));
-                if($qtype->qtype){
+
+                if($qtype->qtype == 'shortanswer' || $qtype->qtype == 'essay' ){
                     $questionsAttemptSteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $value->id));
                     foreach ($questionsAttemptSteps as $key1 => $value1) {
                         $questionsAttemptsData = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $value1->id, 'name' => 'answer'));
                         foreach ($questionsAttemptsData as $key2 => $value2) {
                             
                          
-                              $content .= "<b>Question ".$value->slot."</b><br>";
-                              $content .= $value2->value."<br><br><br>";
+                              $content .= "Question ".$value->slot." \n ";
+                              $content .= $value2->value." \n\n\n ";
                           
                         }
                     }
@@ -415,9 +420,10 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
             $modulecontext = context_module::instance($cmid);
             $fs = get_file_storage();
             $files = $fs->get_area_files($modulecontext->id, 'quizsubmission_file', 'submission_files', $cmid);
+            $files = $fs->get_file_by_hash('1b5de92c9bee56c70b452ecce4b78c99d894225a');
             print_r($files);
-            exit(); */
-
+             exit();  
+            */
 
           
             if($content){
@@ -434,10 +440,13 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
 
                 $uploadresult = $this->_do_curl_request($origserver, $origkey, $content, $filename, $coursenum, $cmid, $courseid, $userid, $inst, $lectid, $coursecategory, $coursename, $senderip, $facultycode, $facultyname, $deptcode, $deptname, $checkfile, $reserve2, $groupsize, $groupmembers, $assignnum, $realassignnum, $fileidentifier);
                 
-                log_it("Adding request record: assignment: $assignnum, user: $userid, filename: $filename, fileidentifer: $fileidentifier");
+                log_it("Adding request record: quiz: $assignnum, user: $userid, filename: $filename, fileidentifer: $fileidentifier");
 
                 $this->_add_request_record($assignnum, $userid, $filename, $fileidentifier, -1, $uploadresult[0]);
             }
+            
+
+
             
         }
 
@@ -658,7 +667,7 @@ class quizaccess_originalityquiz extends quiz_access_rule_base {
             $assignmentname = $this->get_assignment_name($assignnum);
             $username = $this->get_user_name($userid);
             log_it('Curl Error: '.$err. '. Client domain : ' . $_SERVER['HTTP_HOST'].
-               " for course : $coursename, user $userid : $username and assignment $assignnum : $assignmentname" );
+               " for course : $coursename, user $userid : $username and quiz $assignnum : $assignmentname" );
             return array(false, $err);
         } else {
             if (isset($outputarray['Id'])) {

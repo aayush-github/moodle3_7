@@ -315,7 +315,6 @@ class originality_quiz_overview_table extends quiz_attempts_report_table {
             $grade = html_writer::tag('del', $oldgrade) . '/' .
                     html_writer::empty_tag('br') . $newgrade;
         }
-        $grade .= '<hr/><br> Originality Report';
         return $this->make_review_link($grade, $attempt, $slot);
     }
 
@@ -410,7 +409,7 @@ class originality_quiz_overview_table extends quiz_attempts_report_table {
         if ($originalityuse = $DB->get_record_select('plagiarism_originality_conf', $select, array($linkarray['cmid']))) {
             $teacherallowsstudentviewreport = $originalityuse->student_view_report;
         } else {
-            return "AAA";
+            return "";
         }
         $userroles = current(get_user_roles($PAGE->context, $USER->id));
 
@@ -420,7 +419,7 @@ class originality_quiz_overview_table extends quiz_attempts_report_table {
             $isstudent = $userroles->shortname == 'student' ? true : false;
             if ($isstudent) {
                 if (!($adminallowsstudentviewreport && $teacherallowsstudentviewreport)) {
-                    return "BBBB";
+                    return "";
                 }
             }
         }
@@ -529,10 +528,10 @@ class originality_quiz_overview_table extends quiz_attempts_report_table {
 
         if (!empty($plagiarismsettings['originality_use'])) {
             if (!$originalityuse = $DB->get_records_select('plagiarism_originality_conf', $select, array($cmid))) {
-                return "CCC";
+                return "";
             }
         } else {
-                return "DDD";
+                return "";
         }
         return $output;
 
