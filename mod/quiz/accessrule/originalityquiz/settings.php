@@ -23,14 +23,3 @@
  */
 
 defined('MOODLE_INTERNAL') || die;
-
-if ($ADMIN->fulltree) {
-    $settings->add(new admin_setting_configtext('quizaccess_originalityquiz/downloadlink',
-            get_string('safebrowserdownloadurl', 'quizaccess_originalityquiz'),
-            get_string('safebrowserdownloadurl_desc', 'quizaccess_originalityquiz'),
-            '', PARAM_URL, '80'));
-
-    $settings->add(new admin_setting_configcheckbox('quizaccess_originalityquiz/allowedkeys_adv',
-                                get_string('allowedkeys_adv', 'quizaccess_originalityquiz'),
-                                get_string('allowedkeys_adv_desc', 'quizaccess_originalityquiz'), '1'));
-}
